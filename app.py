@@ -42,8 +42,15 @@ def carregar_corpus(ids):
         except: continue
     if not total_df: return pd.DataFrame()
     full_df = pd.concat(total_df, ignore_index=True)
+    
+    # Padronização de Colunas para a busca
     col_nome = 'Nome' if 'Nome' in full_df.columns else full_df.columns[0]
     full_df['busca_limpa'] = full_df[col_nome].apply(remover_acentos).str.lower()
+    
+    # Garantir que as colunas de saída existam (evita erro se alguma planilha vier incompleta)
+    if 'Links' not in full_df.columns: full_df['Links'] = ""
+    if 'Data de Acesso' not in full_df.columns: full_df['Data de Acesso'] = "Dezembro/2025"
+    
     return full_df
 
 df = carregar_corpus(LISTA_DE_IDS)
@@ -60,7 +67,7 @@ with col_busca:
 with col_manual:
     st.markdown("""
     🔍 **Guia Rápido de Uso** Busca por Raiz: apenas o termo (ex: olhos)  
-    Palavra Isolada: .termo. (ex: .de. — acha 'de' em 'água de beber', mas ignora 'de' em 'entender')  
+    Palavra Isolada: .termo. (ex: .de. — acha 'de' em 'água de beber', mas ignora 'entender')  
     Busca por Prefixo: termo+\* (ex: ab+\*)  
     Busca por Sufixo: \*+termo (ex: \*+bessa)  
     Busca Literal: use pontos no lugar dos espaços (ex: .pé.de.moleque.)  
@@ -75,38 +82,41 @@ if botao_buscar or termo == "":
     if t_raw == "":
         resultado = df
     else:
-        # 1. Lógica de Palavra Isolada (.de.) usando Fronteira de Palavra (\b)
         if t_raw.startswith(".") and t_raw.endswith("."):
             t_limpo = remover_acentos(t_raw.replace(".", "")).lower()
-            # O \b garante que a palavra esteja "solta" (cercada por espaços, pontuação ou início/fim da célula)
             padrao = rf"\b{re.escape(t_limpo)}\b"
             resultado = df[df['busca_limpa'].str.contains(padrao, regex=True, na=False)]
-            
-        # 2. Busca por Prefixo (termo+*)
         elif t_raw.endswith("+*"):
             t_limpo = remover_acentos(t_raw.replace("+*", "")).lower()
             resultado = df[df['busca_limpa'].str.startswith(t_limpo, na=False)]
-            
-        # 3. Busca por Sufixo (*+termo)
         elif t_raw.startswith("*+"):
             t_limpo = remover_acentos(t_raw.replace("*+", "")).lower()
             resultado = df[df['busca_limpa'].str.endswith(t_limpo, na=False)]
-            
-        # 4. Busca por Raiz (Contém)
         else:
             t_limpo = remover_acentos(t_raw).lower()
             resultado = df[df['busca_limpa'].str.contains(t_limpo, na=False)]
 else:
     resultado = df
 
-# --- EXIBIÇÃO ---
+# --- EXIBIÇÃO E EXPORTAÇÃO ---
 if not resultado.empty:
     st.success(f"{len(resultado)} resultados encontrados.")
-    df_exibir = resultado.drop(columns=['busca_limpa'], errors='ignore')
+    
+    # Selecionamos apenas as colunas desejadas e na ordem correta
+    col_orig = 'Nome' if 'Nome' in df.columns else df.columns[0]
+    colunas_finais = [col_orig, 'Links', 'Data de Acesso']
+    
+    # Filtra apenas as colunas que existem de fato no resultado para evitar erro
+    df_exibir = resultado[[c for c in colunas_finais if c in resultado.columns]]
+    
+    # Renomeia a coluna inicial para "Nome" caso esteja com outro título
+    df_exibir = df_exibir.rename(columns={col_orig: 'Nome'})
+    
     st.dataframe(df_exibir, use_container_width=True)
     
-    csv = df_exibir.to_csv(index=False).encode('utf-8')
-    st.download_button("📥 Baixar CSV", csv, "pesquisa.csv", "text/csv")
+    # O arquivo CSV agora sairá com as colunas separadas
+    csv = df_exibir.to_csv(index=False, sep=',', encoding='utf-8-sig').encode('utf-8-sig')
+    st.download_button("📥 Baixar CSV", csv, "dados_morfologia.csv", "text/csv")
 else:
     st.error("Nenhum resultado encontrado.")
 
