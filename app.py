@@ -118,5 +118,17 @@ else:
 # --- RODAPÉ ---
 st.divider()
 st.caption("Os dados referenciados pertencem ao [Dicionário Informal](https://www.dicionarioinformal.com.br/) e os links das planilhas redirecionam para a fonte original.")
-st.caption(f"Desenvolvido por: Amanda Gouveia (amandamg@usp.br) | Evelini Cruz Andrade (evelini.andrade@usp.br)")
+st.caption(f"Orientador: Prof. Dr. Vitor Nóbrega (DL-USP) | Desenvolvido por: Amanda Gouveia (amandamg@usp.br) | Evelini Cruz Andrade (evelini.andrade@usp.br)")
 st.caption("Ferramentas: Python, Pandas, Streamlit, GitHub, Streamlit Cloud.")
+
+# Link direto para o README e documentação no repositório glosa-lab
+st.markdown(
+    """
+    <div style="text-align: right;">
+        <a href="https://github.com/glosa-lab/buscador-di" target="_blank" style="text-decoration: none; color: #555; font-size: 13px; font-weight: bold;">
+            📄 Ver documentação técnica e registro de migração (GitHub)
+        </a>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
