@@ -4,11 +4,11 @@ import pandas as pd
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Buscador DI - GREMD", layout="wide")
 
-# --- CONTEÚDO PRINCIPAL ---
+# --- CABEÇALHO ---
 st.title("📖 Buscador do Dicionário Informal")
-st.markdown("Pesquisa morfológica — GREMD-USP (Dados de Dez/2025)")
+st.markdown("Ferramenta de análise morfológica — GREMD-USP (Dados de Dez/2025)")
 
-# --- LISTA DE IDs (IDs REAIS) ---
+# --- LISTA DE IDs REAIS ---
 LISTA_DE_IDS = [
     "1u9Vp_jvbJE1GPWjyDzo59RE9geOcArWx", "1D1l2L4BnN5w2hmiqeWAOHT2mr3I-HMfg5bEgBjjgpcM",
     "1LWIoBHlxoYyBtU2Yviglmbr4z7PSz5qc", "1tr0GS4VoscbdwIoNN4YIhi5YyAtCkemR",
@@ -31,7 +31,8 @@ def carregar_corpus(ids):
     for sheet_id in ids:
         url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
         try:
-            df_temp = pd.read_csv(url)
+            # Skip bad lines garante que erros de formatação no CSV não travem o carregamento
+            df_temp = pd.read_csv(url, on_bad_lines='skip')
             total_df.append(df_temp)
         except:
             continue
@@ -44,52 +45,47 @@ st.divider()
 with st.form("form_busca"):
     col1, col2 = st.columns([2, 1])
     with col1:
-        termo = st.text_input("Digite o termo de pesquisa:", placeholder="Ex: am, mente, des")
+        termo = st.text_input("Termo de pesquisa:", placeholder="Digite aqui...")
     with col2:
-        modo = st.selectbox("Tipo de Filtro:", [
-            "Exibir todos os dados disponíveis",
+        modo = st.selectbox("Filtro:", [
+            "Exibir todos os dados",
             "Busca por Raiz (Contém)",
-            "Busca por Prefixo (Inicia com)",
-            "Busca por Sufixo (Termina com)",
+            "Busca por Prefixo",
+            "Busca por Sufixo",
             "Palavra Isolada (Exata)",
-            "Busca Literal (Respeita maiúsculas/minúsculas)"
+            "Busca Literal"
         ])
-    botao_buscar = st.form_submit_button("🔍 BUSCAR AGORA")
+    botao_buscar = st.form_submit_button("🔍 BUSCAR")
 
 if botao_buscar:
     col = 'Nome' if 'Nome' in df.columns else df.columns[0]
-    if modo == "Exibir todos os dados disponíveis":
+    if modo == "Exibir todos os dados":
         resultado = df
     elif not termo:
-        st.warning("Por favor, digite um termo ou selecione 'Exibir todos'.")
+        st.warning("Insira um termo.")
         resultado = pd.DataFrame()
     else:
         termo = termo.strip()
         if modo == "Busca por Raiz (Contém)":
             resultado = df[df[col].str.contains(termo, case=False, na=False)]
-        elif modo == "Busca por Prefixo (Inicia com)":
+        elif modo == "Busca por Prefixo":
             resultado = df[df[col].str.startswith(termo, na=False)]
-        elif modo == "Busca por Sufixo (Termina com)":
+        elif modo == "Busca por Sufixo":
             resultado = df[df[col].str.endswith(termo, na=False)]
         elif modo == "Palavra Isolada (Exata)":
             resultado = df[df[col].astype(str).str.lower() == termo.lower()]
         elif modo == "Busca Literal":
             resultado = df[df[col].str.contains(termo, case=True, na=False)]
-        else:
-            resultado = pd.DataFrame()
 
     if not resultado.empty:
-        st.success(f"Encontrados {len(resultado)} resultados!")
+        st.success(f"{len(resultado)} resultados encontrados.")
         st.dataframe(resultado, use_container_width=True)
         csv = resultado.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Baixar estes resultados (CSV)", csv, f"pesquisa_{termo}.csv", "text/csv")
+        st.download_button("📥 Baixar CSV", csv, f"pesquisa.csv", "text/csv")
     elif termo:
-        st.error("Nenhum resultado encontrado.")
+        st.error("Sem resultados.")
 
-# --- RODAPÉ (CRÉDITOS DISCRETOS) ---
-st.markdown("---")
-st.caption("""
-**Pesquisa:** Morfologia do Português Brasileiro (GREMD-USP/FFLCH-USP)  
-**Créditos:** Evelini & Amanda Gouveia  
-**Dados:** Corpus Dicionário Informal (Dez/2025)
-""")
+# --- RODAPÉ ---
+st.divider()
+st.caption("Os dados referenciados pertencem ao [Dicionário Informal](https://www.dicionarioinformal.com.br/) e os links das planilhas redirecionam para a fonte original.")
+st.caption(f"Orientador: Prof. Dr. Vitor Nóbrega | Amanda Gouveia (amandamg@usp.br) | Evelini Cruz Andrade (evelini.andrade@usp.br)")
