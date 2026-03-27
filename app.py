@@ -13,6 +13,24 @@ def remover_acentos(texto):
 st.title("📖 Buscador do Dicionário Informal")
 st.markdown("Ferramenta de análise morfológica — GREMD-USP (Dados de Dez/2025)")
 
+# --- MANUAL DE INSTRUÇÕES ---
+with st.expander("ℹ️ Como utilizar os símbolos de busca (Manual)", expanded=False):
+    st.markdown("""
+    Para realizar buscas específicas, utilize os símbolos abaixo diretamente no campo de texto:
+    
+    * **Busca por Raiz (Contém):** Digite apenas o termo.  
+        *Exemplo:* `olhos` (encontra 'olhos', 'olhinhos', 'olhuda')
+    * **Palavra Isolada (Exata):** Coloque o termo entre pontos.  
+        *Exemplo:* `.de.` (encontra apenas a preposição 'de')
+    * **Busca por Prefixo:** Digite o termo seguido de `+*`.  
+        *Exemplo:* `des+*` (encontra palavras que começam com 'des')
+    * **Busca por Sufixo:** Digite `*+` seguido do termo.  
+        *Exemplo:* `*+mente` (encontra palavras que terminam em 'mente')
+    * **Busca Literal:** Use pontos para representar espaços em expressões.  
+        *Exemplo:* `.pe.de.moleque.`
+    * **Ver tudo:** Deixe o campo vazio e clique em Buscar.
+    """)
+
 # --- LISTA DE IDs REAIS ---
 LISTA_DE_IDS = [
     "1u9Vp_jvbJE1GPWjyDzo59RE9geOcArWx", "1D1l2L4BnN5w2hmiqeWAOHT2mr3I-HMfg5bEgBjjgpcM",
@@ -42,48 +60,34 @@ def carregar_corpus(ids):
     if not total_df: return pd.DataFrame()
     full_df = pd.concat(total_df, ignore_index=True)
     col_nome = 'Nome' if 'Nome' in full_df.columns else full_df.columns[0]
-    # Limpeza para busca sem acento
     full_df['busca_limpa'] = full_df[col_nome].apply(remover_acentos).str.lower()
     return full_df
 
 df = carregar_corpus(LISTA_DE_IDS)
-
-# --- GUIA DE USO DISCRETO ---
-with st.expander("🔍 Guia Rápido de Uso (Símbolos)"):
-    st.write("""
-    - **Busca por Raiz:** apenas o termo (ex: olhos)
-    - **Palavra Isolada:** .termo. (ex: .de.)
-    - **Busca por Prefixo:** termo+\* (ex: ab+\*)
-    - **Busca por Sufixo:** \*+termo (ex: \*+bessa)
-    - **Busca Literal:** use pontos nos espaços (ex: .pé.de.moleque.)
-    - **Resetar:** deixe vazio para ver a lista completa
-    """)
 
 # --- FORMULÁRIO ---
 st.divider()
 with st.form("form_busca"):
     col1, col2 = st.columns([2, 1])
     with col1:
-        termo = st.text_input("Termo de pesquisa:", placeholder="Digite aqui...")
+        termo = st.text_input("Termo de pesquisa:", placeholder="Ex: des+* ou .de.")
     with col2:
-        modo_manual = st.selectbox("Ou selecione o Filtro:", [
+        modo_manual = st.selectbox("Modo de Busca:", [
             "Automático (usar símbolos)", "Busca por Raiz", "Busca por Prefixo", 
             "Busca por Sufixo", "Palavra Isolada", "Exibir todos"
         ])
     botao_buscar = st.form_submit_button("🔍 BUSCAR")
 
-# --- LÓGICA DE BUSCA ---
+# --- LÓGICA ---
 col_original = 'Nome' if 'Nome' in df.columns else df.columns[0]
 
 if botao_buscar or termo == "":
     t_raw = termo.strip()
-    
-    # Se estiver vazio ou "Exibir todos", mostra tudo
     if t_raw == "" or modo_manual == "Exibir todos":
         resultado = df
     else:
-        # Lógica para detectar símbolos do seu guia antigo
         if modo_manual == "Automático (usar símbolos)":
+            # Lógica de símbolos (Manual)
             if t_raw.startswith(".") and t_raw.endswith("."):
                 t_limpo = remover_acentos(t_raw.replace(".", "")).lower()
                 resultado = df[df['busca_limpa'] == t_limpo]
@@ -96,9 +100,8 @@ if botao_buscar or termo == "":
             else:
                 t_limpo = remover_acentos(t_raw).lower()
                 resultado = df[df['busca_limpa'].str.contains(t_limpo, na=False)]
-        
-        # Lógica para seleção manual no menu
         else:
+            # Lógica Manual (Menu)
             t_limpo = remover_acentos(t_raw).lower()
             if modo_manual == "Busca por Raiz":
                 resultado = df[df['busca_limpa'].str.contains(t_limpo, na=False)]
