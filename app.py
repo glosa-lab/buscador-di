@@ -118,5 +118,5 @@ else:
 # --- RODAPÉ ---
 st.divider()
 st.caption("Os dados referenciados pertencem ao [Dicionário Informal](https://www.dicionarioinformal.com.br/) e os links das planilhas redirecionam para a fonte original.")
-st.caption(f"Orientador: Prof. Dr. Vitor Nóbrega (DL-USP) | Desenvolvido por: Amanda Gouveia (amandamg@usp.br) | Evelini Cruz Andrade (evelini.andrade@usp.br)")
+st.caption(f"Desenvolvido por: Amanda Gouveia (amandamg@usp.br) | Evelini Cruz Andrade (evelini.andrade@usp.br)")
 st.caption("Ferramentas: Python, Pandas, Streamlit, GitHub, Streamlit Cloud.")
