@@ -31,7 +31,6 @@ def carregar_corpus(ids):
     for sheet_id in ids:
         url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
         try:
-            # Skip bad lines garante que erros de formatação no CSV não travem o carregamento
             df_temp = pd.read_csv(url, on_bad_lines='skip')
             total_df.append(df_temp)
         except:
@@ -45,27 +44,32 @@ st.divider()
 with st.form("form_busca"):
     col1, col2 = st.columns([2, 1])
     with col1:
-        termo = st.text_input("Termo de pesquisa:", placeholder="Digite aqui...")
+        termo = st.text_input("Termo de pesquisa:", placeholder="Digite para filtrar ou deixe vazio para ver tudo...")
     with col2:
         modo = st.selectbox("Filtro:", [
-            "Exibir todos os dados",
             "Busca por Raiz (Contém)",
             "Busca por Prefixo",
             "Busca por Sufixo",
             "Palavra Isolada (Exata)",
-            "Busca Literal"
+            "Busca Literal",
+            "Exibir todos os dados"
         ])
     botao_buscar = st.form_submit_button("🔍 BUSCAR")
 
-if botao_buscar:
-    col = 'Nome' if 'Nome' in df.columns else df.columns[0]
-    if modo == "Exibir todos os dados":
+# Identifica a coluna de busca
+col = 'Nome' if 'Nome' in df.columns else df.columns[0]
+
+# --- LÓGICA DE EXIBIÇÃO ---
+# Se o botão foi clicado OU se for o primeiro carregamento da página
+if not botao_buscar and termo == "":
+    resultado = df
+elif botao_buscar:
+    termo = termo.strip()
+    
+    # Se o modo for "Exibir todos" ou se o campo estiver vazio, mostra tudo
+    if modo == "Exibir todos os dados" or termo == "":
         resultado = df
-    elif not termo:
-        st.warning("Insira um termo.")
-        resultado = pd.DataFrame()
     else:
-        termo = termo.strip()
         if modo == "Busca por Raiz (Contém)":
             resultado = df[df[col].str.contains(termo, case=False, na=False)]
         elif modo == "Busca por Prefixo":
@@ -76,14 +80,18 @@ if botao_buscar:
             resultado = df[df[col].astype(str).str.lower() == termo.lower()]
         elif modo == "Busca Literal":
             resultado = df[df[col].str.contains(termo, case=True, na=False)]
+else:
+    # Caso inicial sem clique (mostra tudo por padrão)
+    resultado = df
 
-    if not resultado.empty:
-        st.success(f"{len(resultado)} resultados encontrados.")
-        st.dataframe(resultado, use_container_width=True)
-        csv = resultado.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Baixar CSV", csv, f"pesquisa.csv", "text/csv")
-    elif termo:
-        st.error("Sem resultados.")
+# --- EXIBIÇÃO DOS RESULTADOS ---
+if not resultado.empty:
+    st.success(f"{len(resultado)} resultados exibidos.")
+    st.dataframe(resultado, use_container_width=True)
+    csv = resultado.to_csv(index=False).encode('utf-8')
+    st.download_button("📥 Baixar CSV", csv, f"pesquisa.csv", "text/csv")
+else:
+    st.error("Nenhum resultado encontrado para os critérios selecionados.")
 
 # --- RODAPÉ ---
 st.divider()
