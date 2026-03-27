@@ -38,21 +38,37 @@ def carregar_corpus(ids):
         url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
         try:
             df_temp = pd.read_csv(url, on_bad_lines='skip')
+            # Limpa nomes de colunas (remove espaços extras que podem vir da planilha)
+            df_temp.columns = df_temp.columns.str.strip()
             total_df.append(df_temp)
         except: continue
+    
     if not total_df: return pd.DataFrame()
     full_df = pd.concat(total_df, ignore_index=True)
     
-    # Padronização interna
-    col_nome_original = 'Nome' if 'Nome' in full_df.columns else full_df.columns[0]
-    full_df['busca_limpa'] = full_df[col_nome_original].apply(remover_acentos).str.lower()
+    # Padronização da coluna de Nome
+    col_nome = 'Nome' if 'Nome' in full_df.columns else full_df.columns[0]
+    full_df = full_df.rename(columns={col_nome: 'Nome'})
     
-    # Força a existência das colunas necessárias
-    if 'Links' not in full_df.columns: full_df['Links'] = ""
-    if 'Data de Acesso' not in full_df.columns: full_df['Data de Acesso'] = "Dezembro/2025"
+    # Tratamento rigoroso da coluna de Links
+    if 'Link' in full_df.columns:
+        full_df = full_df.rename(columns={'Link': 'Links'})
     
-    # Renomeia a coluna principal para "Nome" de forma definitiva
-    full_df = full_df.rename(columns={col_nome_original: 'Nome'})
+    # Se a coluna 'Links' ainda estiver vazia ou não existir, gera o link pelo Nome
+    if 'Links' not in full_df.columns:
+        full_df['Links'] = ""
+        
+    full_df['Links'] = full_df.apply(
+        lambda row: row['Links'] if pd.notna(row['Links']) and str(row['Links']).startswith('http') 
+        else f"https://www.dicionarioinformal.com.br/{str(row['Nome']).replace(' ', '-')}/", 
+        axis=1
+    )
+    
+    # Data de Acesso
+    full_df['Data de Acesso'] = "Dezembro/2025"
+    
+    # Busca morfológica
+    full_df['busca_limpa'] = full_df['Nome'].apply(remover_acentos).str.lower()
     
     return full_df
 
@@ -76,7 +92,7 @@ with col_manual:
     Busca Literal: use pontos no lugar dos espaços (ex: .pé.de.moleque.)  
     Resetar: deixe vazio para ver a lista completa (A-Z)
     
-    🗳️ **Como Exportar** Clique no botão **Baixar Planilha** abaixo.
+    🗳️ **Exportação:** CSV configurado para Excel (separador ';').
     """)
 
 # --- LÓGICA DE BUSCA ---
@@ -105,21 +121,14 @@ else:
 if not resultado.empty:
     st.success(f"{len(resultado)} resultados encontrados.")
     
-    # Seleção estrita das colunas para exportação
     colunas_finais = ['Nome', 'Links', 'Data de Acesso']
     df_exibir = resultado[colunas_finais]
     
     st.dataframe(df_exibir, use_container_width=True)
     
-    # --- AJUSTE CRÍTICO: sep=';' e utf-8-sig para Excel Brasileiro ---
+    # Exportação com separador ';' e encoding para Excel
     csv = df_exibir.to_csv(index=False, sep=';', encoding='utf-8-sig').encode('utf-8-sig')
-    
-    st.download_button(
-        label="📥 Baixar Planilha (Excel/CSV)",
-        data=csv,
-        file_name="dados_morfologia.csv",
-        mime="text/csv"
-    )
+    st.download_button("📥 Baixar Planilha", csv, "dados_morfologia.csv", "text/csv")
 else:
     st.error("Nenhum resultado encontrado.")
 
