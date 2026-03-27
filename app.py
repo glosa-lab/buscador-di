@@ -1,8 +1,13 @@
 import streamlit as st
 import pandas as pd
+import unicodedata
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Buscador DI - GREMD", layout="wide")
+
+def remover_acentos(texto):
+    if not isinstance(texto, str): return str(texto)
+    return "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
 
 # --- CABEÇALHO ---
 st.title("📖 Buscador do Dicionário Informal")
@@ -33,67 +38,88 @@ def carregar_corpus(ids):
         try:
             df_temp = pd.read_csv(url, on_bad_lines='skip')
             total_df.append(df_temp)
-        except:
-            continue
-    return pd.concat(total_df, ignore_index=True) if total_df else pd.DataFrame()
+        except: continue
+    if not total_df: return pd.DataFrame()
+    full_df = pd.concat(total_df, ignore_index=True)
+    col_nome = 'Nome' if 'Nome' in full_df.columns else full_df.columns[0]
+    # Limpeza para busca sem acento
+    full_df['busca_limpa'] = full_df[col_nome].apply(remover_acentos).str.lower()
+    return full_df
 
 df = carregar_corpus(LISTA_DE_IDS)
 
-# --- FORMULÁRIO DE BUSCA ---
+# --- GUIA DE USO DISCRETO ---
+with st.expander("🔍 Guia Rápido de Uso (Símbolos)"):
+    st.write("""
+    - **Busca por Raiz:** apenas o termo (ex: olhos)
+    - **Palavra Isolada:** .termo. (ex: .de.)
+    - **Busca por Prefixo:** termo+\* (ex: ab+\*)
+    - **Busca por Sufixo:** \*+termo (ex: \*+bessa)
+    - **Busca Literal:** use pontos nos espaços (ex: .pé.de.moleque.)
+    - **Resetar:** deixe vazio para ver a lista completa
+    """)
+
+# --- FORMULÁRIO ---
 st.divider()
 with st.form("form_busca"):
     col1, col2 = st.columns([2, 1])
     with col1:
-        termo = st.text_input("Termo de pesquisa:", placeholder="Digite para filtrar ou deixe vazio para ver tudo...")
+        termo = st.text_input("Termo de pesquisa:", placeholder="Digite aqui...")
     with col2:
-        modo = st.selectbox("Filtro:", [
-            "Busca por Raiz (Contém)",
-            "Busca por Prefixo",
-            "Busca por Sufixo",
-            "Palavra Isolada (Exata)",
-            "Busca Literal",
-            "Exibir todos os dados"
+        modo_manual = st.selectbox("Ou selecione o Filtro:", [
+            "Automático (usar símbolos)", "Busca por Raiz", "Busca por Prefixo", 
+            "Busca por Sufixo", "Palavra Isolada", "Exibir todos"
         ])
     botao_buscar = st.form_submit_button("🔍 BUSCAR")
 
-# Identifica a coluna de busca
-col = 'Nome' if 'Nome' in df.columns else df.columns[0]
+# --- LÓGICA DE BUSCA ---
+col_original = 'Nome' if 'Nome' in df.columns else df.columns[0]
 
-# --- LÓGICA DE EXIBIÇÃO ---
-# Se o botão foi clicado OU se for o primeiro carregamento da página
-if not botao_buscar and termo == "":
-    resultado = df
-elif botao_buscar:
-    termo = termo.strip()
+if botao_buscar or termo == "":
+    t_raw = termo.strip()
     
-    # Se o modo for "Exibir todos" ou se o campo estiver vazio, mostra tudo
-    if modo == "Exibir todos os dados" or termo == "":
+    # Se estiver vazio ou "Exibir todos", mostra tudo
+    if t_raw == "" or modo_manual == "Exibir todos":
         resultado = df
     else:
-        if modo == "Busca por Raiz (Contém)":
-            resultado = df[df[col].str.contains(termo, case=False, na=False)]
-        elif modo == "Busca por Prefixo":
-            resultado = df[df[col].str.startswith(termo, na=False)]
-        elif modo == "Busca por Sufixo":
-            resultado = df[df[col].str.endswith(termo, na=False)]
-        elif modo == "Palavra Isolada (Exata)":
-            resultado = df[df[col].astype(str).str.lower() == termo.lower()]
-        elif modo == "Busca Literal":
-            resultado = df[df[col].str.contains(termo, case=True, na=False)]
+        # Lógica para detectar símbolos do seu guia antigo
+        if modo_manual == "Automático (usar símbolos)":
+            if t_raw.startswith(".") and t_raw.endswith("."):
+                t_limpo = remover_acentos(t_raw.replace(".", "")).lower()
+                resultado = df[df['busca_limpa'] == t_limpo]
+            elif t_raw.endswith("+*"):
+                t_limpo = remover_acentos(t_raw.replace("+*", "")).lower()
+                resultado = df[df['busca_limpa'].str.startswith(t_limpo)]
+            elif t_raw.startswith("*+"):
+                t_limpo = remover_acentos(t_raw.replace("*+", "")).lower()
+                resultado = df[df['busca_limpa'].str.endswith(t_limpo)]
+            else:
+                t_limpo = remover_acentos(t_raw).lower()
+                resultado = df[df['busca_limpa'].str.contains(t_limpo, na=False)]
+        
+        # Lógica para seleção manual no menu
+        else:
+            t_limpo = remover_acentos(t_raw).lower()
+            if modo_manual == "Busca por Raiz":
+                resultado = df[df['busca_limpa'].str.contains(t_limpo, na=False)]
+            elif modo_manual == "Busca por Prefixo":
+                resultado = df[df['busca_limpa'].str.startswith(t_limpo)]
+            elif modo_manual == "Busca por Sufixo":
+                resultado = df[df['busca_limpa'].str.endswith(t_limpo)]
+            elif modo_manual == "Palavra Isolada":
+                resultado = df[df['busca_limpa'] == t_limpo]
 else:
-    # Caso inicial sem clique (mostra tudo por padrão)
     resultado = df
 
-# --- EXIBIÇÃO DOS RESULTADOS ---
+# --- EXIBIÇÃO ---
 if not resultado.empty:
-    st.success(f"{len(resultado)} resultados exibidos.")
-    st.dataframe(resultado, use_container_width=True)
-    csv = resultado.to_csv(index=False).encode('utf-8')
-    st.download_button("📥 Baixar CSV", csv, f"pesquisa.csv", "text/csv")
+    st.success(f"{len(resultado)} resultados.")
+    st.dataframe(resultado.drop(columns=['busca_limpa'], errors='ignore'), use_container_width=True)
+    csv = resultado.drop(columns=['busca_limpa'], errors='ignore').to_csv(index=False).encode('utf-8')
+    st.download_button("📥 Baixar CSV", csv, "pesquisa.csv", "text/csv")
 else:
-    st.error("Nenhum resultado encontrado para os critérios selecionados.")
+    st.error("Nenhum resultado encontrado.")
 
-# --- RODAPÉ ---
 st.divider()
 st.caption("Os dados referenciados pertencem ao [Dicionário Informal](https://www.dicionarioinformal.com.br/) e os links das planilhas redirecionam para a fonte original.")
-st.caption(f"Orientador: Prof. Dr. Vitor Nóbrega | Amanda Gouveia (amandamg@usp.br) | Evelini Cruz Andrade (evelini.andrade@usp.br)")
+st.caption(f"Orientador: Prof. Dr. Vitor Nóbrega (DL-USP) | Amanda Gouveia (amandamg@usp.br) | Evelini Cruz Andrade (evelini.andrade@usp.br)")
