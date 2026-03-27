@@ -51,18 +51,15 @@ df = carregar_corpus(LISTA_DE_IDS)
 col_busca, col_manual = st.columns([1.5, 1])
 
 with col_busca:
-    # O formulário agora envolve o input e o botão corretamente
     with st.form("meu_form"):
         st.write("**Termo de Busca**")
         termo = st.text_input(label="Termo", label_visibility="collapsed", placeholder="Digite aqui...")
         botao_buscar = st.form_submit_button("🔍 BUSCAR")
-    
-    st.markdown(f"Desenvolvido por: Amanda Gouveia (amandamg@usp.br) | Evelini Cruz Andrade (evelini.andrade@usp.br)")
 
 with col_manual:
     st.markdown("""
-    🔍 **Guia Rápido de Uso** Busca por Raiz: apenas o termo (ex: olhos — acha fragmentos como olhos e ferrolhos)  
-    Palavra Isolada: .termo. (ex: .de. — usa pontos para ignorar fragmentos internos como entendedor)  
+    🔍 **Guia Rápido de Uso** Busca por Raiz: apenas o termo (ex: olhos)  
+    Palavra Isolada: .termo. (ex: .de.)  
     Busca por Prefixo: termo+\* (ex: ab+\*)  
     Busca por Sufixo: \*+termo (ex: \*+bessa)  
     Busca Literal: use pontos no lugar dos espaços (ex: .pé.de.moleque.)  
@@ -72,16 +69,11 @@ with col_manual:
     """)
 
 # --- LÓGICA DE BUSCA ---
-# Identifica a coluna original para exibição
-col_orig = 'Nome' if 'Nome' in df.columns else df.columns[0]
-
-# Se o botão foi clicado OU o campo está vazio (carregamento inicial)
 if botao_buscar or termo == "":
     t_raw = termo.strip()
     if t_raw == "":
         resultado = df
     else:
-        # Lógica de símbolos
         if t_raw.startswith(".") and t_raw.endswith("."):
             t_limpo = remover_acentos(t_raw.replace(".", "")).lower()
             resultado = df[df['busca_limpa'] == t_limpo]
@@ -100,7 +92,6 @@ else:
 # --- EXIBIÇÃO ---
 if not resultado.empty:
     st.success(f"{len(resultado)} resultados encontrados.")
-    # Remove a coluna auxiliar antes de mostrar
     df_exibir = resultado.drop(columns=['busca_limpa'], errors='ignore')
     st.dataframe(df_exibir, use_container_width=True)
     
@@ -112,4 +103,4 @@ else:
 # --- RODAPÉ ---
 st.divider()
 st.caption("Os dados referenciados pertencem ao [Dicionário Informal](https://www.dicionarioinformal.com.br/) e os links das planilhas redirecionam para a fonte original.")
-st.caption(f"Orientador: Prof. Dr. Vitor Nóbrega (DL-USP)")
+st.caption(f"Orientador: Prof. Dr. Vitor Nóbrega (DL-USP) | Amanda Gouveia (amandamg@usp.br) | Evelini Cruz Andrade (evelini.andrade@usp.br)")
