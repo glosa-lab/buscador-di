@@ -43,13 +43,16 @@ def carregar_corpus(ids):
     if not total_df: return pd.DataFrame()
     full_df = pd.concat(total_df, ignore_index=True)
     
-    # Padronização de Colunas para a busca
-    col_nome = 'Nome' if 'Nome' in full_df.columns else full_df.columns[0]
-    full_df['busca_limpa'] = full_df[col_nome].apply(remover_acentos).str.lower()
+    # Padronização interna
+    col_nome_original = 'Nome' if 'Nome' in full_df.columns else full_df.columns[0]
+    full_df['busca_limpa'] = full_df[col_nome_original].apply(remover_acentos).str.lower()
     
-    # Garantir que as colunas de saída existam (evita erro se alguma planilha vier incompleta)
+    # Força a existência das colunas necessárias
     if 'Links' not in full_df.columns: full_df['Links'] = ""
     if 'Data de Acesso' not in full_df.columns: full_df['Data de Acesso'] = "Dezembro/2025"
+    
+    # Renomeia a coluna principal para "Nome" de forma definitiva
+    full_df = full_df.rename(columns={col_nome_original: 'Nome'})
     
     return full_df
 
@@ -67,13 +70,13 @@ with col_busca:
 with col_manual:
     st.markdown("""
     🔍 **Guia Rápido de Uso** Busca por Raiz: apenas o termo (ex: olhos)  
-    Palavra Isolada: .termo. (ex: .de. — acha 'de' em 'água de beber', mas ignora 'entender')  
+    Palavra Isolada: .termo. (ex: .de.)  
     Busca por Prefixo: termo+\* (ex: ab+\*)  
     Busca por Sufixo: \*+termo (ex: \*+bessa)  
     Busca Literal: use pontos no lugar dos espaços (ex: .pé.de.moleque.)  
     Resetar: deixe vazio para ver a lista completa (A-Z)
     
-    🗳️ **Como Exportar (Planilha)** Clique no botão **Baixar CSV** abaixo da tabela de resultados.
+    🗳️ **Como Exportar** Clique no botão **Baixar Planilha** abaixo.
     """)
 
 # --- LÓGICA DE BUSCA ---
@@ -102,21 +105,21 @@ else:
 if not resultado.empty:
     st.success(f"{len(resultado)} resultados encontrados.")
     
-    # Selecionamos apenas as colunas desejadas e na ordem correta
-    col_orig = 'Nome' if 'Nome' in df.columns else df.columns[0]
-    colunas_finais = [col_orig, 'Links', 'Data de Acesso']
-    
-    # Filtra apenas as colunas que existem de fato no resultado para evitar erro
-    df_exibir = resultado[[c for c in colunas_finais if c in resultado.columns]]
-    
-    # Renomeia a coluna inicial para "Nome" caso esteja com outro título
-    df_exibir = df_exibir.rename(columns={col_orig: 'Nome'})
+    # Seleção estrita das colunas para exportação
+    colunas_finais = ['Nome', 'Links', 'Data de Acesso']
+    df_exibir = resultado[colunas_finais]
     
     st.dataframe(df_exibir, use_container_width=True)
     
-    # O arquivo CSV agora sairá com as colunas separadas
-    csv = df_exibir.to_csv(index=False, sep=',', encoding='utf-8-sig').encode('utf-8-sig')
-    st.download_button("📥 Baixar CSV", csv, "dados_morfologia.csv", "text/csv")
+    # --- AJUSTE CRÍTICO: sep=';' e utf-8-sig para Excel Brasileiro ---
+    csv = df_exibir.to_csv(index=False, sep=';', encoding='utf-8-sig').encode('utf-8-sig')
+    
+    st.download_button(
+        label="📥 Baixar Planilha (Excel/CSV)",
+        data=csv,
+        file_name="dados_morfologia.csv",
+        mime="text/csv"
+    )
 else:
     st.error("Nenhum resultado encontrado.")
 
