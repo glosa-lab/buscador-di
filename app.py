@@ -50,34 +50,36 @@ df = carregar_corpus(LISTA_DE_IDS)
 # --- FORMULÁRIO ---
 st.divider()
 with st.form("form_busca"):
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        termo = st.text_input("Termo de pesquisa:", placeholder="Digite o radical ou afixo...")
-    with col2:
-        modo = st.selectbox("Selecione o Filtro:", [
-            "Busca por Raiz (Contém)", 
-            "Busca por Prefixo", 
-            "Busca por Sufixo", 
-            "Palavra Isolada (Exata)", 
-            "Exibir todos os dados"
-        ])
+    termo = st.text_input("Busca Inteligente (use símbolos morfológicos):", 
+                         placeholder="Ex: des+*, *+mente, .de. ou apenas o radical")
     botao_buscar = st.form_submit_button("🔍 BUSCAR")
 
-# --- LÓGICA ---
+# --- LÓGICA DE DETECÇÃO AUTOMÁTICA ---
 if botao_buscar or termo == "":
-    t_limpo = remover_acentos(termo.strip()).lower()
+    t_raw = termo.strip()
     
-    if modo == "Exibir todos os dados" or (not botao_buscar and termo == ""):
+    if t_raw == "":
         resultado = df
     else:
-        if modo == "Busca por Raiz (Contém)":
-            resultado = df[df['busca_limpa'].str.contains(t_limpo, na=False)]
-        elif modo == "Busca por Prefixo":
-            resultado = df[df['busca_limpa'].str.startswith(t_limpo)]
-        elif modo == "Busca por Sufixo":
-            resultado = df[df['busca_limpa'].str.endswith(t_limpo)]
-        elif modo == "Palavra Isolada (Exata)":
+        # 1. Palavra Isolada (.termo.)
+        if t_raw.startswith(".") and t_raw.endswith("."):
+            t_limpo = remover_acentos(t_raw.replace(".", "")).lower()
             resultado = df[df['busca_limpa'] == t_limpo]
+        
+        # 2. Busca por Prefixo (termo+*)
+        elif t_raw.endswith("+*"):
+            t_limpo = remover_acentos(t_raw.replace("+*", "")).lower()
+            resultado = df[df['busca_limpa'].str.startswith(t_limpo, na=False)]
+        
+        # 3. Busca por Sufixo (*+termo)
+        elif t_raw.startswith("*+"):
+            t_limpo = remover_acentos(t_raw.replace("*+", "")).lower()
+            resultado = df[df['busca_limpa'].str.endswith(t_limpo, na=False)]
+        
+        # 4. Busca por Raiz (Contém - Padrão)
+        else:
+            t_limpo = remover_acentos(t_raw).lower()
+            resultado = df[df['busca_limpa'].str.contains(t_limpo, na=False)]
 else:
     resultado = df
 
@@ -88,7 +90,7 @@ if not resultado.empty:
     csv = resultado.drop(columns=['busca_limpa'], errors='ignore').to_csv(index=False).encode('utf-8')
     st.download_button("📥 Baixar CSV", csv, "pesquisa.csv", "text/csv")
 else:
-    st.error("Nenhum resultado encontrado.")
+    st.error("Nenhum resultado encontrado para este padrão.")
 
 # --- RODAPÉ ---
 st.divider()
