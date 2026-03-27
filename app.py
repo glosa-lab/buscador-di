@@ -45,20 +45,15 @@ def carregar_corpus(ids):
     if not total_df: return pd.DataFrame()
     full_df = pd.concat(total_df, ignore_index=True)
     
-    # 1. Nome
     col_nome = 'Nome' if 'Nome' in full_df.columns else full_df.columns[0]
     full_df = full_df.rename(columns={col_nome: 'Nome'})
     
-    # 2. Link (Mantém exatamente o que estiver na planilha)
     if 'Link' in full_df.columns:
         full_df = full_df.rename(columns={'Link': 'Links'})
-    else:
-        full_df['Links'] = "" # Cria coluna vazia se não existir link algum
+    elif 'Links' not in full_df.columns:
+        full_df['Links'] = ""
     
-    # 3. Data de Acesso
     full_df['Data de Acesso'] = "Dezembro/2025"
-    
-    # Coluna técnica de busca (não exportada)
     full_df['busca_limpa'] = full_df['Nome'].apply(remover_acentos).str.lower()
     
     return full_df
@@ -111,10 +106,8 @@ else:
 # --- EXIBIÇÃO E EXPORTAÇÃO ---
 if not resultado.empty:
     st.success(f"{len(resultado)} resultados encontrados.")
-    
     colunas_finais = ['Nome', 'Links', 'Data de Acesso']
     df_exibir = resultado[colunas_finais]
-    
     st.dataframe(df_exibir, use_container_width=True)
     
     csv = df_exibir.to_csv(index=False, sep=';', encoding='utf-8-sig').encode('utf-8-sig')
@@ -126,3 +119,4 @@ else:
 st.divider()
 st.caption("Os dados referenciados pertencem ao [Dicionário Informal](https://www.dicionarioinformal.com.br/) e os links das planilhas redirecionam para a fonte original.")
 st.caption(f"Orientador: Prof. Dr. Vitor Nóbrega (DL-USP) | Desenvolvido por: Amanda Gouveia (amandamg@usp.br) | Evelini Cruz Andrade (evelini.andrade@usp.br)")
+st.caption("Ferramentas: Python, Pandas, Streamlit, GitHub, Streamlit Cloud.")
