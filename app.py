@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import unicodedata
+import re
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Buscador DI - GREMD", layout="wide")
@@ -59,13 +60,13 @@ with col_busca:
 with col_manual:
     st.markdown("""
     🔍 **Guia Rápido de Uso** Busca por Raiz: apenas o termo (ex: olhos)  
-    Palavra Isolada: .termo. (ex: .de.)  
+    Palavra Isolada: .termo. (ex: .de. — acha 'de' em 'água de beber', mas ignora 'de' em 'entender')  
     Busca por Prefixo: termo+\* (ex: ab+\*)  
     Busca por Sufixo: \*+termo (ex: \*+bessa)  
     Busca Literal: use pontos no lugar dos espaços (ex: .pé.de.moleque.)  
     Resetar: deixe vazio para ver a lista completa (A-Z)
     
-    🗳️ **Como Exportar (Planilha)** Depois da sua busca, clique no botão **Baixar CSV** que aparecerá abaixo da tabela.
+    🗳️ **Como Exportar (Planilha)** Clique no botão **Baixar CSV** abaixo da tabela de resultados.
     """)
 
 # --- LÓGICA DE BUSCA ---
@@ -74,15 +75,24 @@ if botao_buscar or termo == "":
     if t_raw == "":
         resultado = df
     else:
+        # 1. Lógica de Palavra Isolada (.de.) usando Fronteira de Palavra (\b)
         if t_raw.startswith(".") and t_raw.endswith("."):
             t_limpo = remover_acentos(t_raw.replace(".", "")).lower()
-            resultado = df[df['busca_limpa'] == t_limpo]
+            # O \b garante que a palavra esteja "solta" (cercada por espaços, pontuação ou início/fim da célula)
+            padrao = rf"\b{re.escape(t_limpo)}\b"
+            resultado = df[df['busca_limpa'].str.contains(padrao, regex=True, na=False)]
+            
+        # 2. Busca por Prefixo (termo+*)
         elif t_raw.endswith("+*"):
             t_limpo = remover_acentos(t_raw.replace("+*", "")).lower()
             resultado = df[df['busca_limpa'].str.startswith(t_limpo, na=False)]
+            
+        # 3. Busca por Sufixo (*+termo)
         elif t_raw.startswith("*+"):
             t_limpo = remover_acentos(t_raw.replace("*+", "")).lower()
             resultado = df[df['busca_limpa'].str.endswith(t_limpo, na=False)]
+            
+        # 4. Busca por Raiz (Contém)
         else:
             t_limpo = remover_acentos(t_raw).lower()
             resultado = df[df['busca_limpa'].str.contains(t_limpo, na=False)]
@@ -103,4 +113,4 @@ else:
 # --- RODAPÉ ---
 st.divider()
 st.caption("Os dados referenciados pertencem ao [Dicionário Informal](https://www.dicionarioinformal.com.br/) e os links das planilhas redirecionam para a fonte original.")
-st.caption(f"Orientador: Prof. Dr. Vitor Nóbrega (DL-USP) | Amanda Gouveia (amandamg@usp.br) | Evelini Cruz Andrade (evelini.andrade@usp.br)")
+st.caption(f"Orientador: Prof. Dr. Vitor Nóbrega (DL-USP) | Desenvolvido por: Amanda Gouveia (amandamg@usp.br) | Evelini Cruz Andrade (evelini.andrade@usp.br)")
