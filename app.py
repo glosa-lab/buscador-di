@@ -10,8 +10,8 @@ def remover_acentos(texto):
     return "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
 
 # --- CABEÇALHO ---
-st.title("📖 Buscador do Dicionário Informal")
-st.markdown("Ferramenta de análise morfológica — GREMD-USP (Dados de Dez/2025)")
+st.subheader("Busca no Dicionário Informal – Dez/2025")
+st.markdown("Permite a busca facilitada nos termos do Dicionário Informal, com dados de dezembro de 2025, e permite que os resultados sejam exportados em forma de planilha.")
 
 # --- LISTA DE IDs REAIS ---
 LISTA_DE_IDS = [
@@ -47,52 +47,11 @@ def carregar_corpus(ids):
 
 df = carregar_corpus(LISTA_DE_IDS)
 
-# --- FORMULÁRIO ---
-st.divider()
-with st.form("form_busca"):
-    termo = st.text_input("Busca Inteligente (use símbolos morfológicos):", 
-                         placeholder="Ex: des+*, *+mente, .de. ou apenas o radical")
-    botao_buscar = st.form_submit_button("🔍 BUSCAR")
+# --- LAYOUT EM COLUNAS ---
+col_busca, col_manual = st.columns([1.5, 1])
 
-# --- LÓGICA DE DETECÇÃO AUTOMÁTICA ---
-if botao_buscar or termo == "":
-    t_raw = termo.strip()
-    
-    if t_raw == "":
-        resultado = df
-    else:
-        # 1. Palavra Isolada (.termo.)
-        if t_raw.startswith(".") and t_raw.endswith("."):
-            t_limpo = remover_acentos(t_raw.replace(".", "")).lower()
-            resultado = df[df['busca_limpa'] == t_limpo]
-        
-        # 2. Busca por Prefixo (termo+*)
-        elif t_raw.endswith("+*"):
-            t_limpo = remover_acentos(t_raw.replace("+*", "")).lower()
-            resultado = df[df['busca_limpa'].str.startswith(t_limpo, na=False)]
-        
-        # 3. Busca por Sufixo (*+termo)
-        elif t_raw.startswith("*+"):
-            t_limpo = remover_acentos(t_raw.replace("*+", "")).lower()
-            resultado = df[df['busca_limpa'].str.endswith(t_limpo, na=False)]
-        
-        # 4. Busca por Raiz (Contém - Padrão)
-        else:
-            t_limpo = remover_acentos(t_raw).lower()
-            resultado = df[df['busca_limpa'].str.contains(t_limpo, na=False)]
-else:
-    resultado = df
-
-# --- EXIBIÇÃO ---
-if not resultado.empty:
-    st.success(f"{len(resultado)} resultados encontrados.")
-    st.dataframe(resultado.drop(columns=['busca_limpa'], errors='ignore'), use_container_width=True)
-    csv = resultado.drop(columns=['busca_limpa'], errors='ignore').to_csv(index=False).encode('utf-8')
-    st.download_button("📥 Baixar CSV", csv, "pesquisa.csv", "text/csv")
-else:
-    st.error("Nenhum resultado encontrado para este padrão.")
-
-# --- RODAPÉ ---
-st.divider()
-st.caption("Os dados referenciados pertencem ao [Dicionário Informal](https://www.dicionarioinformal.com.br/) e os links das planilhas redirecionam para a fonte original.")
-st.caption(f"Orientador: Prof. Dr. Vitor Nóbrega (DL-USP) | Amanda Gouveia (amandamg@usp.br) | Evelini Cruz Andrade (evelini.andrade@usp.br)")
+with col_busca:
+    with st.form("form_busca"):
+        st.write("**Termo de Busca**")
+        termo = st.text_input(label="Enter a value", label_visibility="collapsed", placeholder="Digite aqui...")
+        botao_buscar = st.form_submit
