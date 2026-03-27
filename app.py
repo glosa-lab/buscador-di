@@ -7,7 +7,7 @@ st.set_page_config(page_title="Buscador DI", layout="wide")
 st.title("📖 Buscador do Dicionário Informal")
 st.markdown("Pesquisa morfológica — GREMD-USP (Dados de Dez/2025)")
 
-# --- LISTA DE IDs ---
+# --- LISTA DE IDs (IDs REAIS) ---
 LISTA_DE_IDS = [
     "1u9Vp_jvbJE1GPWjyDzo59RE9geOcArWx", "1D1l2L4BnN5w2hmiqeWAOHT2mr3I-HMfg5bEgBjjgpcM",
     "1LWIoBHlxoYyBtU2Yviglmbr4z7PSz5qc", "1tr0GS4VoscbdwIoNN4YIhi5YyAtCkemR",
@@ -40,48 +40,58 @@ df = carregar_corpus(LISTA_DE_IDS)
 
 # --- INTERFACE DE FILTROS ---
 st.divider()
-col1, col2 = st.columns([2, 1])
 
-with col1:
-    termo = st.text_input("Digite o termo de pesquisa:", placeholder="Ex: am, mente, des")
+# Criamos um formulário para que o "Enter" ou o botão "Buscar" funcionem juntos
+with st.form("form_busca"):
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        termo = st.text_input("Digite o termo de pesquisa:", placeholder="Ex: am, mente, des")
+    
+    with col2:
+        modo = st.selectbox("Tipo de Filtro:", [
+            "Exibir todos os dados disponíveis",
+            "Busca por Raiz (Contém)",
+            "Busca por Prefixo (Inicia com)",
+            "Busca por Sufixo (Termina com)",
+            "Palavra Isolada (Exata)",
+            "Busca Literal (Respeita maiúsculas/minúsculas)"
+        ])
+    
+    # O Botão de Buscar propriamente dito
+    botao_buscar = st.form_submit_button("🔍 BUSCAR AGORA")
 
-with col2:
-    modo = st.selectbox("Tipo de Filtro:", [
-        "Exibir todos os dados disponíveis",
-        "Busca por Raiz (Contém)",
-        "Busca por Prefixo (Inicia com)",
-        "Busca por Sufixo (Termina com)",
-        "Palavra Isolada (Exata)",
-        "Busca Literal (Respeita maiúsculas/minúsculas)"
-    ])
-
-# Identifica a coluna de busca
-col = 'Nome' if 'Nome' in df.columns else df.columns[0]
-
-if modo == "Exibir todos os dados disponíveis":
-    resultado = df
-elif not termo:
-    resultado = pd.DataFrame()
-else:
-    termo = termo.strip()
-    if modo == "Busca por Raiz (Contém)":
-        resultado = df[df[col].str.contains(termo, case=False, na=False)]
-    elif modo == "Busca por Prefixo (Inicia com)":
-        resultado = df[df[col].str.startswith(termo, na=False)]
-    elif modo == "Busca por Sufixo (Termina com)":
-        resultado = df[df[col].str.endswith(termo, na=False)]
-    elif modo == "Palavra Isolada (Exata)":
-        resultado = df[df[col].astype(str).str.lower() == termo.lower()]
-    elif modo == "Busca Literal":
-        resultado = df[df[col].str.contains(termo, case=True, na=False)]
-    else:
+# --- LÓGICA DE FILTRAGEM (Só executa se clicar no botão ou der Enter) ---
+if botao_buscar:
+    # Identifica a coluna de busca
+    col = 'Nome' if 'Nome' in df.columns else df.columns[0]
+    
+    if modo == "Exibir todos os dados disponíveis":
+        resultado = df
+    elif not termo:
+        st.warning("Por favor, digite um termo ou selecione 'Exibir todos'.")
         resultado = pd.DataFrame()
+    else:
+        termo = termo.strip()
+        if modo == "Busca por Raiz (Contém)":
+            resultado = df[df[col].str.contains(termo, case=False, na=False)]
+        elif modo == "Busca por Prefixo (Inicia com)":
+            resultado = df[df[col].str.startswith(termo, na=False)]
+        elif modo == "Busca por Sufixo (Termina com)":
+            resultado = df[df[col].str.endswith(termo, na=False)]
+        elif modo == "Palavra Isolada (Exata)":
+            resultado = df[df[col].astype(str).str.lower() == termo.lower()]
+        elif modo == "Busca Literal":
+            resultado = df[df[col].str.contains(termo, case=True, na=False)]
+        else:
+            resultado = pd.DataFrame()
 
-# --- EXIBIÇÃO ---
-if not resultado.empty:
-    st.subheader(f"📊 Resultados: {len(resultado)} entradas")
-    st.dataframe(resultado, use_container_width=True)
-    csv = resultado.to_csv(index=False).encode('utf-8')
-    st.download_button("📥 Baixar estes resultados (CSV)", csv, "pesquisa.csv", "text/csv")
-elif termo:
-    st.warning("Nenhum resultado encontrado.")
+    # --- EXIBIÇÃO ---
+    if not resultado.empty:
+        st.success(f"Encontrados {len(resultado)} resultados!")
+        st.dataframe(resultado, use_container_width=True)
+        
+        csv = resultado.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Baixar estes resultados (CSV)", csv, f"pesquisa_{termo}.csv", "text/csv")
+    elif termo:
+        st.error("Nenhum resultado encontrado para essa combinação.")
