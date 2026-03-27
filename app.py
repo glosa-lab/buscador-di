@@ -38,7 +38,6 @@ def carregar_corpus(ids):
         url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
         try:
             df_temp = pd.read_csv(url, on_bad_lines='skip')
-            # Limpa nomes de colunas (remove espaços extras que podem vir da planilha)
             df_temp.columns = df_temp.columns.str.strip()
             total_df.append(df_temp)
         except: continue
@@ -46,28 +45,20 @@ def carregar_corpus(ids):
     if not total_df: return pd.DataFrame()
     full_df = pd.concat(total_df, ignore_index=True)
     
-    # Padronização da coluna de Nome
+    # 1. Nome
     col_nome = 'Nome' if 'Nome' in full_df.columns else full_df.columns[0]
     full_df = full_df.rename(columns={col_nome: 'Nome'})
     
-    # Tratamento rigoroso da coluna de Links
+    # 2. Link (Mantém exatamente o que estiver na planilha)
     if 'Link' in full_df.columns:
         full_df = full_df.rename(columns={'Link': 'Links'})
+    else:
+        full_df['Links'] = "" # Cria coluna vazia se não existir link algum
     
-    # Se a coluna 'Links' ainda estiver vazia ou não existir, gera o link pelo Nome
-    if 'Links' not in full_df.columns:
-        full_df['Links'] = ""
-        
-    full_df['Links'] = full_df.apply(
-        lambda row: row['Links'] if pd.notna(row['Links']) and str(row['Links']).startswith('http') 
-        else f"https://www.dicionarioinformal.com.br/{str(row['Nome']).replace(' ', '-')}/", 
-        axis=1
-    )
-    
-    # Data de Acesso
+    # 3. Data de Acesso
     full_df['Data de Acesso'] = "Dezembro/2025"
     
-    # Busca morfológica
+    # Coluna técnica de busca (não exportada)
     full_df['busca_limpa'] = full_df['Nome'].apply(remover_acentos).str.lower()
     
     return full_df
@@ -126,7 +117,6 @@ if not resultado.empty:
     
     st.dataframe(df_exibir, use_container_width=True)
     
-    # Exportação com separador ';' e encoding para Excel
     csv = df_exibir.to_csv(index=False, sep=';', encoding='utf-8-sig').encode('utf-8-sig')
     st.download_button("📥 Baixar Planilha", csv, "dados_morfologia.csv", "text/csv")
 else:
