@@ -6,6 +6,27 @@ import re
 # --- CONFIGURAÇÃO DA TELA DO BUSCADOR ---
 st.set_page_config(page_title="Busca no Dicionário Informal", layout="wide")
 
+# --- INJEÇÃO DE CSS PARA NIVELAR A ALTURA DOS CONTAINERS ---
+st.markdown(
+    """
+    <style>
+        /* Força as colunas do Streamlit a ocuparem 100% da altura da linha */
+        [data-testid="stColumn"] {
+            display: flex;
+            flex-direction: column;
+        }
+        /* Força os containers internos com borda a esticarem uniformemente */
+        [data-testid="stVerticalBlockBorderContainer"] {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 def remover_acentos(texto):
     """
     Função que padroniza o texto: remove acentos e caracteres especiais
@@ -14,12 +35,12 @@ def remover_acentos(texto):
     if not isinstance(texto, str): return str(texto)
     return "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
 
-# --- CABEÇALHO (ESPELHANDO A TELA EM PRODUÇÃO) ---
+# --- CABEÇALHO ---
 st.subheader("Busca no Dicionário Informal – Dez/2025")
 st.markdown("Permite a busca facilitada nos termos do Dicionário Informal, com dados de dezembro de 2025, e permite que os resultados sejam exportados em forma de planilha.")
 
 # ==============================================================================
-# LEITURA AUTOMATIZADA DOS IDs DAS PLANILHAS (BEST PRACTICE)
+# LEITURA AUTOMATIZADA DOS IDs DAS PLANILHAS
 # O código busca o arquivo externo 'ids.txt' no repositório para carregar os dados.
 # ==============================================================================
 def carregar_lista_ids(caminho_arquivo="ids.txt"):
@@ -47,11 +68,9 @@ def carregar_corpus(ids):
     if not total_df: return pd.DataFrame()
     full_df = pd.concat(total_df, ignore_index=True)
     
-    # Mapeamento estrito das colunas com base no cabeçalho real da planilha
     col_nome = 'Nome' if 'Nome' in full_df.columns else full_df.columns[0]
     full_df = full_df.rename(columns={col_nome: 'Nome'})
     
-    # Preserva o singular 'Link' conforme a tabela empírica do laboratório
     if 'Links' in full_df.columns:
         full_df = full_df.rename(columns={'Links': 'Link'})
     elif 'Link' not in full_df.columns:
@@ -69,13 +88,13 @@ df = carregar_corpus(LISTA_DE_IDS)
 col_busca, col_manual = st.columns([1.5, 1])
 
 with col_busca:
-    # O container com borda substitui o form nativo, alinhando verticalmente com a coluna ao lado
     with st.container(border=True):
-        st.write("**Termo de Busca**")
-        termo = st.text_input(label="Termo", label_visibility="collapsed", placeholder="Digite aqui...")
+        # Elementos do topo da caixa
+        with st.container():
+            st.write("**Termo de Busca**")
+            termo = st.text_input(label="Termo", label_visibility="collapsed", placeholder="Digite aqui...")
         
-        # Cria um espaçamento interno dinâmico para empurrar o botão para a base do bloco
-        st.write("")
+        # O botão fica isolado na parte inferior devido ao 'justify-content: space-between' do CSS
         botao_buscar = st.button("🔍 BUSCAR", use_container_width=True)
 
 with col_manual:
@@ -102,11 +121,8 @@ if botao_buscar or termo == "":
     if t_raw == "":
         resultado = df
     else:
-        # Checa se o usuário utilizou acentos na digitação do termo de busca
         tem_acento = t_raw != remover_acentos(t_raw)
         
-        # Se contiver acento, a busca é direcionada para a coluna original (Nome)
-        # Se NÃO contiver acento, usa a busca_limpa para manter tolerância a falhas
         if tem_acento:
             coluna_alvo = df['Nome'].str.lower()
             t_busca = t_raw.lower()
@@ -114,7 +130,6 @@ if botao_buscar or termo == "":
             coluna_alvo = df['busca_limpa']
             t_busca = t_raw.lower()
 
-        # Aplicação dos operadores morfológicos regulados por Regex
         if t_busca.startswith(".") and t_busca.endswith("."):
             t_termo = t_busca.replace(".", "")
             padrao = rf"\b{re.escape(t_termo)}\b"
@@ -132,8 +147,6 @@ else:
 
 if not resultado.empty:
     st.success(f"{len(resultado)} resultados encontrados.")
-    
-    # Exibe na tabela exatamente o trio de colunas homologado na interface gráfica
     colunas_finais = ['Nome', 'Link', 'Data de Acesso']
     df_exibir = resultado[colunas_finais]
     st.dataframe(df_exibir, use_container_width=True)
