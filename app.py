@@ -3,18 +3,25 @@ import pandas as pd
 import unicodedata
 import re
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Buscador DI - GREMD", layout="wide")
+# --- CONFIGURAÇÃO DA TELA DO BUSCADOR ---
+st.set_page_config(page_title="Busca no Dicionário Informal", layout="wide")
 
 def remover_acentos(texto):
+    """
+    Função que padroniza o texto: remove acentos e caracteres especiais
+    para evitar que buscas por constituintes falhem por distração ortográfica.
+    """
     if not isinstance(texto, str): return str(texto)
     return "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
 
-# --- CABEÇALHO ---
+# --- CABEÇALHO (ESPELHANDO A TELA EM PRODUÇÃO) ---
 st.subheader("Busca no Dicionário Informal – Dez/2025")
 st.markdown("Permite a busca facilitada nos termos do Dicionário Informal, com dados de dezembro de 2025, e permite que os resultados sejam exportados em forma de planilha.")
 
-# --- LISTA DE IDs REAIS ---
+# ==============================================================================
+# EDITÁVEL: LISTA DE IDs DAS PLANILHAS DO GOOGLE SHEETS
+# Substitua as strings abaixo pelos códigos identificadores das suas próprias planilhas.
+# ==============================================================================
 LISTA_DE_IDS = [
     "1u9Vp_jvbJE1GPWjyDzo59RE9geOcArWx", "1D1l2L4BnN5w2hmiqeWAOHT2mr3I-HMfg5bEgBjjgpcM",
     "1LWIoBHlxoYyBtU2Yviglmbr4z7PSz5qc", "1tr0GS4VoscbdwIoNN4YIhi5YyAtCkemR",
@@ -30,6 +37,7 @@ LISTA_DE_IDS = [
     "1YbnbxgJdCOmioU2vhQkcOshhk6CkOB5l7D2rk6P1rDo", "1ZWozXE9_RrW8CyH9xiWxQmZ7oZwF5RsbWIRQKW-7Jk8",
     "1mvkNRiEQ7FXDNwknR5nq6V1gLYw3pHWFIG621xplabk", "1NotlOYE3H8HYLvrs9PUoqkcD_zoEWcGqQH8R-ciYqLE"
 ]
+# ==============================================================================
 
 @st.cache_data(ttl=86400)
 def carregar_corpus(ids):
@@ -41,28 +49,30 @@ def carregar_corpus(ids):
             df_temp.columns = df_temp.columns.str.strip()
             total_df.append(df_temp)
         except: continue
-    
+        
     if not total_df: return pd.DataFrame()
     full_df = pd.concat(total_df, ignore_index=True)
     
+    # Mapeamento estrito das colunas com base no cabeçalho real da planilha
     col_nome = 'Nome' if 'Nome' in full_df.columns else full_df.columns[0]
     full_df = full_df.rename(columns={col_nome: 'Nome'})
     
-    if 'Link' in full_df.columns:
-        full_df = full_df.rename(columns={'Link': 'Links'})
-    elif 'Links' not in full_df.columns:
-        full_df['Links'] = ""
-    
-    full_df['Data de Acesso'] = "Dezembro/2025"
+    # Preserva o singular 'Link' conforme a tabela empírica do laboratório
+    if 'Links' in full_df.columns:
+        full_df = full_df.rename(columns={'Links': 'Link'})
+    elif 'Link' not in full_df.columns:
+        full_df['Link'] = ""
+        
+    if 'Data de Acesso' not in full_df.columns:
+        full_df['Data de Acesso'] = "Dezembro/2025"
+        
     full_df['busca_limpa'] = full_df['Nome'].apply(remover_acentos).str.lower()
-    
     return full_df
 
 df = carregar_corpus(LISTA_DE_IDS)
 
 # --- LAYOUT EM COLUNAS ---
 col_busca, col_manual = st.columns([1.5, 1])
-
 with col_busca:
     with st.form("meu_form"):
         st.write("**Termo de Busca**")
@@ -76,12 +86,11 @@ with col_manual:
     Busca por Prefixo: termo+\* (ex: ab+\*)  
     Busca por Sufixo: \*+termo (ex: \*+bessa)  
     Busca Literal: use pontos no lugar dos espaços (ex: .pé.de.moleque.)  
-    Resetar: deixe vazio para ver a lista completa (A-Z)
-    
+    Resetar: deixe vazio para ver a lista completa (A-Z)  
     🗳️ **Exportação:** CSV configurado para Excel (separador ';').
     """)
 
-# --- LÓGICA DE BUSCA ---
+# --- APLICAÇÃO LÓGICA DE FILTRAGEM VIA REGEX ---
 if botao_buscar or termo == "":
     t_raw = termo.strip()
     if t_raw == "":
@@ -103,25 +112,25 @@ if botao_buscar or termo == "":
 else:
     resultado = df
 
-# --- EXIBIÇÃO E EXPORTAÇÃO ---
 if not resultado.empty:
     st.success(f"{len(resultado)} resultados encontrados.")
-    colunas_finais = ['Nome', 'Links', 'Data de Acesso']
+    
+    # Exibe na tabela exatamente o trio de colunas homologado na interface gráfica
+    colunas_finais = ['Nome', 'Link', 'Data de Acesso']
     df_exibir = resultado[colunas_finais]
     st.dataframe(df_exibir, use_container_width=True)
     
     csv = df_exibir.to_csv(index=False, sep=';', encoding='utf-8-sig').encode('utf-8-sig')
-    st.download_button("📥 Baixar Planilha", csv, "dados_morfologia.csv", "text/csv")
+    st.download_button("📥 Baixar Planilha", csv, "dados_filtrados.csv", "text/csv")
 else:
     st.error("Nenhum resultado encontrado.")
 
-# --- RODAPÉ ---
+# --- RODAPÉ ACADÊMICO ---
 st.divider()
 st.caption("Os dados referenciados pertencem ao [Dicionário Informal](https://www.dicionarioinformal.com.br/) e os links das planilhas redirecionam para a fonte original.")
-st.caption(f"Orientador: Prof. Dr. Vitor Nóbrega (DL-USP) | Desenvolvido por: Amanda Gouveia (amandamg@usp.br) | Evelini Cruz Andrade (evelini.andrade@usp.br)")
-st.caption("Ferramentas: Python, Pandas, Streamlit, GitHub, Streamlit Cloud.")
+st.caption("Orientador: Prof. Dr. Vitor Nóbrega (DL-USP) | Extração de Dados: Amanda Gouveia | Modelagem e Interface: Evelini Cruz Andrade")
+st.caption("Ferramentas: Python, Pandas, Streamlit, GitHub, Streamlit Cloud, Google Sheets.")
 
-# Link direto para o README e documentação no repositório glosa-lab
 st.markdown(
     """
     <div style="text-align: right;">
