@@ -6,21 +6,29 @@ import re
 # --- CONFIGURAÇÃO DA TELA DO BUSCADOR ---
 st.set_page_config(page_title="Busca no Dicionário Informal", layout="wide")
 
-# --- INJEÇÃO DE CSS PARA NIVELAR A ALTURA DOS CONTAINERS ---
+# --- INJEÇÃO DE CSS REFORÇADA (ALVOS DIRETOS DE LAYOUT) ---
 st.markdown(
     """
     <style>
-        /* Força as colunas do Streamlit a ocuparem 100% da altura da linha */
-        [data-testid="stColumn"] {
-            display: flex;
-            flex-direction: column;
+        /* Força as colunas principais a manterem o mesmo tamanho vertical */
+        div[data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            align-items: stretch !important;
         }
-        /* Força os containers internos com borda a esticarem uniformemente */
-        [data-testid="stVerticalBlockBorderContainer"] {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+        div[data-testid="stColumn"] {
+            display: flex !important;
+            flex-direction: column !important;
+        }
+        /* Alvo direto nas caixas com borda do Streamlit */
+        div[data-testid="element-container"] + div[class*="stVerticalBlockBorderContainer"] {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+            height: 100% !important;
+        }
+        .stDeployButton {
+            display: none !important;
         }
     </style>
     """,
@@ -46,7 +54,7 @@ st.markdown("Permite a busca facilitada nos termos do Dicionário Informal, com 
 def carregar_lista_ids(caminho_arquivo="ids.txt"):
     try:
         with open(caminho_arquivo, "r", encoding="utf-8") as f:
-            return [linha.strip() for linha in f if linha.strip()]
+            return [linha.strip() for lambda_line in f if (linha := lambda_line.strip())]
     except FileNotFoundError:
         st.error(f"Erro: O arquivo '{caminho_arquivo}' não foi encontrado no repositório GitHub.")
         return []
@@ -89,13 +97,20 @@ col_busca, col_manual = st.columns([1.5, 1])
 
 with col_busca:
     with st.container(border=True):
-        # Elementos do topo da caixa
-        with st.container():
-            st.write("**Termo de Busca**")
-            termo = st.text_input(label="Termo", label_visibility="collapsed", placeholder="Digite aqui...")
+        # Envelopando a busca em uma div interna para empurrar o layout
+        st.markdown('<div style="min-height: 260px; display: flex; flex-direction: column; justify-content: space-between;">', unsafe_allow_html=True)
         
-        # O botão fica isolado na parte inferior devido ao 'justify-content: space-between' do CSS
+        st.write("**Termo de Busca**")
+        termo = st.text_input(label="Termo", label_visibility="collapsed", placeholder="Digite aqui...")
+        
+        # Injeta quebras de linha calculadas caso o flexbox do CSS seja bloqueado pelo servidor
+        st.write("")
+        st.write("")
+        st.write("")
+        st.write("")
+        
         botao_buscar = st.button("🔍 BUSCAR", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 with col_manual:
     with st.container(border=True):
