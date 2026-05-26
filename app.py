@@ -19,24 +19,18 @@ st.subheader("Busca no Dicionário Informal – Dez/2025")
 st.markdown("Permite a busca facilitada nos termos do Dicionário Informal, com dados de dezembro de 2025, e permite que os resultados sejam exportados em forma de planilha.")
 
 # ==============================================================================
-# EDITÁVEL: LISTA DE IDs DAS PLANILHAS DO GOOGLE SHEETS
-# Substitua as strings abaixo pelos códigos identificadores das suas próprias planilhas.
+# LEITURA AUTOMATIZADA DOS IDs DAS PLANILHAS (BEST PRACTICE)
+# O código busca o arquivo externo 'ids.txt' no repositório para carregar os dados.
 # ==============================================================================
-LISTA_DE_IDS = [
-    "1u9Vp_jvbJE1GPWjyDzo59RE9geOcArWx", "1D1l2L4BnN5w2hmiqeWAOHT2mr3I-HMfg5bEgBjjgpcM",
-    "1LWIoBHlxoYyBtU2Yviglmbr4z7PSz5qc", "1tr0GS4VoscbdwIoNN4YIhi5YyAtCkemR",
-    "1hnqot_n9n55j09G1Yx-wktt1uPda8BFk", "1pltCsuDpDGpRNsAP_mmjPXgDF-dXaOLe",
-    "1sJD-fyssg0zwA_hzSOyFt8ECx_6gV_4B", "1DMV-ywq-t6CJFICgTtP-7S_5Gl5ui421",
-    "1zu_pjwwiffTPwJMAdcMYSb117zCAIGhc", "1-2-432yWisqasNDo0VJNPYXypnKut-7K",
-    "1G2ZWyp3Ly_VP-fNwodLqRgmwSReCHWE-", "1BRo20jIzK_ZO8TPLUm78yrn_dbFm9X6F",
-    "14_UdNb6HelhuhhxOyZpvQHS233YD1ll5", "1huRmAwRZ9FsA8Ei7yMGMQCkErkfEvQVL",
-    "1ycSBsQR970tFuOV72bI91hoaHMjRQ4zeJShY0O_Y770", "1h6iGYYoq_DEUFeEa3Ss6hsRWYBAKkiE-Kdy7KB2OYs0",
-    "1OzjPrgmtf6VHYiWhYcwMMSVz_Sv86XL0kzQVmK3s_hc", "1kBUgce7_Ik5i40p-Mfser69K6uFQEbBm-UJtcnnfPYA",
-    "14jafTnXPSgI75CcbrCnxLnD8zkQKCsBd0PZ5A40nggE", "1Ir0Pmcg6PAaUfXNVxHcGy-pEr4VzyLW_JcPiwUbt0Z0",
-    "1nigbsmbUoXwmOWPAEofRurzwtEQefOxEfk0LuZ6S65w", "1unSJHbz337YoKtpQPisQdeS5T8uetp_aIz6GyIXrplA",
-    "1YbnbxgJdCOmioU2vhQkcOshhk6CkOB5l7D2rk6P1rDo", "1ZWozXE9_RrW8CyH9xiWxQmZ7oZwF5RsbWIRQKW-7Jk8",
-    "1mvkNRiEQ7FXDNwknR5nq6V1gLYw3pHWFIG621xplabk", "1NotlOYE3H8HYLvrs9PUoqkcD_zoEWcGqQH8R-ciYqLE"
-]
+def carregar_lista_ids(caminho_arquivo="ids.txt"):
+    try:
+        with open(caminho_arquivo, "r", encoding="utf-8") as f:
+            return [linha.strip() for linha in f if linha.strip()]
+    except FileNotFoundError:
+        st.error(f"Erro: O arquivo '{caminho_arquivo}' não foi encontrado no repositório GitHub.")
+        return []
+
+LISTA_DE_IDS = carregar_lista_ids()
 # ==============================================================================
 
 @st.cache_data(ttl=86400)
@@ -90,25 +84,37 @@ with col_manual:
     🗳️ **Exportação:** CSV configurado para Excel (separador ';').
     """)
 
-# --- APLICAÇÃO LÓGICA DE FILTRAGEM VIA REGEX ---
+# --- APLICAÇÃO LÓGICA DE DUPLA VARREDURA (RIGOR DIACRÍTICO) ---
 if botao_buscar or termo == "":
     t_raw = termo.strip()
     if t_raw == "":
         resultado = df
     else:
-        if t_raw.startswith(".") and t_raw.endswith("."):
-            t_limpo = remover_acentos(t_raw.replace(".", "")).lower()
-            padrao = rf"\b{re.escape(t_limpo)}\b"
-            resultado = df[df['busca_limpa'].str.contains(padrao, regex=True, na=False)]
-        elif t_raw.endswith("+*"):
-            t_limpo = remover_acentos(t_raw.replace("+*", "")).lower()
-            resultado = df[df['busca_limpa'].str.startswith(t_limpo, na=False)]
-        elif t_raw.startswith("*+"):
-            t_limpo = remover_acentos(t_raw.replace("*+", "")).lower()
-            resultado = df[df['busca_limpa'].str.endswith(t_limpo, na=False)]
+        # Checa se o usuário utilizou acentos na digitação do termo de busca
+        tem_acento = t_raw != remover_acentos(t_raw)
+        
+        # Se contiver acento, a busca é direcionada para a coluna original (Nome)
+        # Se NÃO contiver acento, usa a busca_limpa para manter tolerância a falhas
+        if tem_acento:
+            coluna_alvo = df['Nome'].str.lower()
+            t_busca = t_raw.lower()
         else:
-            t_limpo = remover_acentos(t_raw).lower()
-            resultado = df[df['busca_limpa'].str.contains(t_limpo, na=False)]
+            coluna_alvo = df['busca_limpa']
+            t_busca = t_raw.lower()
+
+        # Aplicação dos operadores morfológicos regulados por Regex
+        if t_busca.startswith(".") and t_busca.endswith("."):
+            t_termo = t_busca.replace(".", "")
+            padrao = rf"\b{re.escape(t_termo)}\b"
+            resultado = df[coluna_alvo.str.contains(padrao, regex=True, na=False)]
+        elif t_busca.endswith("+*"):
+            t_termo = t_busca.replace("+*", "")
+            resultado = df[coluna_alvo.str.startswith(t_termo, na=False)]
+        elif t_busca.startswith("*+"):
+            t_termo = t_busca.replace("*+", "")
+            resultado = df[coluna_alvo.str.endswith(t_termo, na=False)]
+        else:
+            resultado = df[coluna_alvo.str.contains(t_busca, na=False)]
 else:
     resultado = df
 
