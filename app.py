@@ -75,12 +75,18 @@ with col_busca:
 
 with col_manual:
     st.markdown("""
-    🔍 **Guia Rápido de Uso** Busca por Raiz: apenas o termo (ex: olhos)  
-    Palavra Isolada: .termo. (ex: .de.)  
-    Busca por Prefixo: termo+\* (ex: ab+\*)  
-    Busca por Sufixo: \*+termo (ex: \*+bessa)  
-    Busca Literal: use pontos no lugar dos espaços (ex: .pé.de.moleque.)  
-    Resetar: deixe vazio para ver a lista completa (A-Z)  
+    🔍 **Guia Rápido de Uso**
+    * **Busca por Raiz:** apenas o termo (ex: olhos)  
+    * **Palavra Isolada:** .termo. (ex: .de.)  
+    * **Busca por Prefixo:** termo+\* (ex: ab+\*)  
+    * **Busca por Sufixo:** \*+termo (ex: \*+bessa)  
+    * **Busca Literal:** use pontos no lugar dos espaços (ex: .pé.de.moleque.)  
+    * **Resetar:** deixe vazio para ver a lista completa (A-Z)  
+    
+    ⚠️ **Rigor Diacrítico (Acentos):**
+    * Digitar **com acento** ativa a busca estrita (ex: `.falará.` isola o futuro e ignora *falara*).  
+    * Digitar **sem acento** ativa a busca ampla/tolerante (retorna ambos).  
+    
     🗳️ **Exportação:** CSV configurado para Excel (separador ';').
     """)
 
