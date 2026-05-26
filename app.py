@@ -65,30 +65,36 @@ def carregar_corpus(ids):
 
 df = carregar_corpus(LISTA_DE_IDS)
 
-# --- LAYOUT EM COLUNAS ---
+# --- LAYOUT EM COLUNAS EQUILIBRADAS ---
 col_busca, col_manual = st.columns([1.5, 1])
+
 with col_busca:
-    with st.form("meu_form"):
+    # O container com borda substitui o form nativo, alinhando verticalmente com a coluna ao lado
+    with st.container(border=True):
         st.write("**Termo de Busca**")
         termo = st.text_input(label="Termo", label_visibility="collapsed", placeholder="Digite aqui...")
-        botao_buscar = st.form_submit_button("🔍 BUSCAR")
+        
+        # Cria um espaçamento interno dinâmico para empurrar o botão para a base do bloco
+        st.write("")
+        botao_buscar = st.button("🔍 BUSCAR", use_container_width=True)
 
 with col_manual:
-    st.markdown("""
-    🔍 **Guia Rápido de Uso**
-    * **Busca por Raiz:** apenas o termo (ex: olhos)  
-    * **Palavra Isolada:** .termo. (ex: .de.)  
-    * **Busca por Prefixo:** termo+\* (ex: ab+\*)  
-    * **Busca por Sufixo:** \*+termo (ex: \*+bessa)  
-    * **Busca Literal:** use pontos no lugar dos espaços (ex: .pé.de.moleque.)  
-    * **Resetar:** deixe vazio para ver a lista completa (A-Z)  
-    
-    ⚠️ **Rigor Diacrítico (Acentos):**
-    * Digitar **com acento** ativa a busca estrita (ex: `.falará.` isola o futuro e ignora *falara*).  
-    * Digitar **sem acento** ativa a busca ampla/tolerante (retorna ambos).  
-    
-    🗳️ **Exportação:** CSV configurado para Excel (separador ';').
-    """)
+    with st.container(border=True):
+        st.markdown("""
+        🔍 **Guia Rápido de Uso**
+        * **Busca por Raiz:** apenas o termo (ex: olhos)  
+        * **Palavra Isolada:** .termo. (ex: .de.)  
+        * **Busca por Prefixo:** termo+\* (ex: ab+\*)  
+        * **Busca por Sufixo:** \*+termo (ex: \*+bessa)  
+        * **Busca Literal:** use pontos no lugar dos espaços (ex: .pé.de.moleque.)  
+        * **Resetar:** deixe vazio para ver a lista completa (A-Z)  
+        
+        ⚠️ **Rigor Diacrítico (Acentos):**
+        * Digitar **com acento** ativa a busca estrita (ex: `.falará.` isola o futuro e ignora *falara*).  
+        * Digitar **sem acento** ativa a busca ampla/tolerante (retorna ambos).  
+        
+        🗳️ **Exportação:** CSV configurado para Excel (separador ';').
+        """)
 
 # --- APLICAÇÃO LÓGICA DE DUPLA VARREDURA (RIGOR DIACRÍTICO) ---
 if botao_buscar or termo == "":
