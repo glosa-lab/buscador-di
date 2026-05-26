@@ -6,35 +6,6 @@ import re
 # --- CONFIGURAÇÃO DA TELA DO BUSCADOR ---
 st.set_page_config(page_title="Busca no Dicionário Informal", layout="wide")
 
-# --- INJEÇÃO DE CSS REFORÇADA (ALVOS DIRETOS DE LAYOUT) ---
-st.markdown(
-    """
-    <style>
-        /* Força as colunas principais a manterem o mesmo tamanho vertical */
-        div[data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            align-items: stretch !important;
-        }
-        div[data-testid="stColumn"] {
-            display: flex !important;
-            flex-direction: column !important;
-        }
-        /* Alvo direto nas caixas com borda do Streamlit */
-        div[data-testid="element-container"] + div[class*="stVerticalBlockBorderContainer"] {
-            flex: 1 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            justify-content: space-between !important;
-            height: 100% !important;
-        }
-        .stDeployButton {
-            display: none !important;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
 def remover_acentos(texto):
     """
     Função que padroniza o texto: remove acentos e caracteres especiais
@@ -43,18 +14,18 @@ def remover_acentos(texto):
     if not isinstance(texto, str): return str(texto)
     return "".join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
 
-# --- CABEÇALHO ---
+# --- CABEÇALHO (ESPELHANDO A TELA EM PRODUÇÃO) ---
 st.subheader("Busca no Dicionário Informal – Dez/2025")
 st.markdown("Permite a busca facilitada nos termos do Dicionário Informal, com dados de dezembro de 2025, e permite que os resultados sejam exportados em forma de planilha.")
 
 # ==============================================================================
-# LEITURA AUTOMATIZADA DOS IDs DAS PLANILHAS
+# LEITURA AUTOMATIZADA DOS IDs DAS PLANILHAS (BEST PRACTICE)
 # O código busca o arquivo externo 'ids.txt' no repositório para carregar os dados.
 # ==============================================================================
 def carregar_lista_ids(caminho_arquivo="ids.txt"):
     try:
         with open(caminho_arquivo, "r", encoding="utf-8") as f:
-            return [linha.strip() for lambda_line in f if (linha := lambda_line.strip())]
+            return [linha.strip() for linha in f if linha.strip()]
     except FileNotFoundError:
         st.error(f"Erro: O arquivo '{caminho_arquivo}' não foi encontrado no repositório GitHub.")
         return []
@@ -76,9 +47,11 @@ def carregar_corpus(ids):
     if not total_df: return pd.DataFrame()
     full_df = pd.concat(total_df, ignore_index=True)
     
+    # Mapeamento estrito das colunas com base no cabeçalho real da planilha
     col_nome = 'Nome' if 'Nome' in full_df.columns else full_df.columns[0]
     full_df = full_df.rename(columns={col_nome: 'Nome'})
     
+    # Preserva o singular 'Link' conforme a tabela empírica do laboratório
     if 'Links' in full_df.columns:
         full_df = full_df.rename(columns={'Links': 'Link'})
     elif 'Link' not in full_df.columns:
@@ -92,43 +65,30 @@ def carregar_corpus(ids):
 
 df = carregar_corpus(LISTA_DE_IDS)
 
-# --- LAYOUT EM COLUNAS EQUILIBRADAS ---
+# --- LAYOUT EM COLUNAS ---
 col_busca, col_manual = st.columns([1.5, 1])
-
 with col_busca:
-    with st.container(border=True):
-        # Envelopando a busca em uma div interna para empurrar o layout
-        st.markdown('<div style="min-height: 260px; display: flex; flex-direction: column; justify-content: space-between;">', unsafe_allow_html=True)
-        
+    with st.form("meu_form"):
         st.write("**Termo de Busca**")
         termo = st.text_input(label="Termo", label_visibility="collapsed", placeholder="Digite aqui...")
-        
-        # Injeta quebras de linha calculadas caso o flexbox do CSS seja bloqueado pelo servidor
-        st.write("")
-        st.write("")
-        st.write("")
-        st.write("")
-        
-        botao_buscar = st.button("🔍 BUSCAR", use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        botao_buscar = st.form_submit_button("🔍 BUSCAR")
 
 with col_manual:
-    with st.container(border=True):
-        st.markdown("""
-        🔍 **Guia Rápido de Uso**
-        * **Busca por Raiz:** apenas o termo (ex: olhos)  
-        * **Palavra Isolada:** .termo. (ex: .de.)  
-        * **Busca por Prefixo:** termo+\* (ex: ab+\*)  
-        * **Busca por Sufixo:** \*+termo (ex: \*+bessa)  
-        * **Busca Literal:** use pontos no lugar dos espaços (ex: .pé.de.moleque.)  
-        * **Resetar:** deixe vazio para ver a lista completa (A-Z)  
-        
-        ⚠️ **Rigor Diacrítico (Acentos):**
-        * Digitar **com acento** ativa a busca estrita (ex: `.falará.` isola o futuro e ignora *falara*).  
-        * Digitar **sem acento** ativa a busca ampla/tolerante (retorna ambos).  
-        
-        🗳️ **Exportação:** CSV configurado para Excel (separador ';').
-        """)
+    st.markdown("""
+    🔍 **Guia Rápido de Uso**
+    * **Busca por Raiz:** apenas o termo (ex: olhos)  
+    * **Palavra Isolada:** .termo. (ex: .de.)  
+    * **Busca por Prefixo:** termo+\* (ex: ab+\*)  
+    * **Busca por Sufixo:** \*+termo (ex: \*+bessa)  
+    * **Busca Literal:** use pontos no lugar dos espaços (ex: .pé.de.moleque.)  
+    * **Resetar:** deixe vazio para ver a lista completa (A-Z)  
+    
+    ⚠️ **Rigor Diacrítico (Acentos):**
+    * Digitar **com acento** ativa a busca estrita (ex: `.falará.` isola o futuro e ignora *falara*).  
+    * Digitar **sem acento** ativa a busca ampla/tolerante (retorna ambos).  
+    
+    🗳️ **Exportação:** CSV configurado para Excel (separador ';').
+    """)
 
 # --- APLICAÇÃO LÓGICA DE DUPLA VARREDURA (RIGOR DIACRÍTICO) ---
 if botao_buscar or termo == "":
@@ -136,8 +96,11 @@ if botao_buscar or termo == "":
     if t_raw == "":
         resultado = df
     else:
+        # Checa se o usuário utilizou acentos na digitação do termo de busca
         tem_acento = t_raw != remover_acentos(t_raw)
         
+        # Se contiver acento, a busca é direcionada para a coluna original (Nome)
+        # Se NÃO contiver acento, usa a busca_limpa para manter tolerância a falhas
         if tem_acento:
             coluna_alvo = df['Nome'].str.lower()
             t_busca = t_raw.lower()
@@ -145,6 +108,7 @@ if botao_buscar or termo == "":
             coluna_alvo = df['busca_limpa']
             t_busca = t_raw.lower()
 
+        # Aplicação dos operadores morfológicos regulados por Regex
         if t_busca.startswith(".") and t_busca.endswith("."):
             t_termo = t_busca.replace(".", "")
             padrao = rf"\b{re.escape(t_termo)}\b"
@@ -162,6 +126,8 @@ else:
 
 if not resultado.empty:
     st.success(f"{len(resultado)} resultados encontrados.")
+    
+    # Exibe na tabela exatamente o trio de colunas homologado na interface gráfica
     colunas_finais = ['Nome', 'Link', 'Data de Acesso']
     df_exibir = resultado[colunas_finais]
     st.dataframe(df_exibir, use_container_width=True)
